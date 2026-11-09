@@ -1,0 +1,72 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// SQLite não suporta enums: valores válidos ficam em lib/constants.ts
+
+model User {
+  id           String        @id @default(cuid())
+  name         String
+  email        String        @unique
+  passwordHash String
+  role         String        @default("CITIZEN") // CITIZEN | AGENT | ADMIN
+  createdAt    DateTime      @default(now())
+  tickets      Ticket[]      @relation("author")
+  assigned     Ticket[]      @relation("assignee")
+  events       TicketEvent[]
+}
+
+model Category {
+  id       String   @id @default(cuid())
+  name     String   @unique
+  slaHours Int
+  tickets  Ticket[]
+}
+
+model Ticket {
+  id          String        @id @default(cuid())
+  protocol    String        @unique
+  title       String
+  description String
+  status      String        @default("OPEN")
+  priority    String        @default("MEDIUM")
+  lat         Float
+  lng         Float
+  address     String?
+  photoUrl    String?
+  categoryId  String
+  category    Category      @relation(fields: [categoryId], references: [id])
+  authorId    String
+  author      User          @relation("author", fields: [authorId], references: [id])
+  assigneeId  String?
+  assignee    User?         @relation("assignee", fields: [assigneeId], references: [id])
+  dueAt       DateTime
+  resolvedAt  DateTime?
+  createdAt   DateTime      @default(now())
+  updatedAt   DateTime      @updatedAt
+  events      TicketEvent[]
+
+  @@index([status])
+  @@index([dueAt])
+}
+
+model TicketEvent {
+  id         String   @id @default(cuid())
+  ticketId   String
+  ticket     Ticket   @relation(fields: [ticketId], references: [id], onDelete: Cascade)
+  actorId    String
+  actor      User     @relation(fields: [actorId], references: [id])
+  type       String // CREATED | STATUS_CHANGE | COMMENT | ASSIGNED
+  fromStatus String?
+  toStatus   String?
+  message    String?
+  isInternal Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  @@index([ticketId])
+}
